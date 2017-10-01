@@ -174,6 +174,7 @@ uint256 GetRandHash();
 int64 GetTime();
 void SetMockTime(int64 nMockTimeIn);
 int64 GetAdjustedTime();
+long hex2long(const char* hexString);
 std::string FormatFullVersion();
 std::string FormatSubVersion(const std::string& name, int nClientVersion, const std::vector<std::string>& comments);
 void AddTimeData(const CNetAddr& ip, int64 nTime);
@@ -392,6 +393,46 @@ inline uint256 Hash(const T1 pbegin, const T1 pend)
     return hash2;
 }
 
+class CHashWriter
+{
+private:
+    SHA256_CTX ctx;
+
+public:
+    int nType;
+    int nVersion;
+
+    void Init() {
+        SHA256_Init(&ctx);
+    }
+
+    CHashWriter(int nTypeIn, int nVersionIn) : nType(nTypeIn), nVersion(nVersionIn) {
+        Init();
+    }
+
+    CHashWriter& write(const char *pch, size_t size) {
+        SHA256_Update(&ctx, pch, size);
+        return (*this);
+    }
+
+    // invalidates the object
+    uint256 GetHash() {
+        uint256 hash1;
+        SHA256_Final((unsigned char*)&hash1, &ctx);
+        uint256 hash2;
+        SHA256((unsigned char*)&hash1, sizeof(hash1), (unsigned char*)&hash2);
+        return hash2;
+    }
+
+    template<typename T>
+    CHashWriter& operator<<(const T& obj) {
+        // Serialize to this stream
+        ::Serialize(*this, obj, nType, nVersion);
+        return (*this);
+    }
+};
+
+
 template<typename T1, typename T2>
 inline uint256 Hash(const T1 p1begin, const T1 p1end,
                     const T2 p2begin, const T2 p2end)
@@ -429,13 +470,9 @@ inline uint256 Hash(const T1 p1begin, const T1 p1end,
 template<typename T>
 uint256 SerializeHash(const T& obj, int nType=SER_GETHASH, int nVersion=PROTOCOL_VERSION)
 {
-    // Most of the time is spent allocating and deallocating CDataStream's
-    // buffer.  If this ever needs to be optimized further, make a CStaticStream
-    // class with its buffer on the stack.
-    CDataStream ss(nType, nVersion);
-    ss.reserve(10000);
+    CHashWriter ss(nType, nVersion);
     ss << obj;
-    return Hash(ss.begin(), ss.end());
+    return ss.GetHash();
 }
 
 inline uint160 Hash160(const std::vector<unsigned char>& vch)
@@ -516,9 +553,9 @@ public:
 // Note: It turns out we might have been able to use boost::thread
 // by using TerminateThread(boost::thread.native_handle(), 0);
 #ifdef WIN32
-typedef HANDLE pthread_t;
+typedef HANDLE pthread_thread;
 
-inline pthread_t CreateThread(void(*pfn)(void*), void* parg, bool fWantHandle=false)
+inline pthread_thread CreateThread(void(*pfn)(void*), void* parg, bool fWantHandle=false)
 {
     DWORD nUnused = 0;
     HANDLE hthread =
@@ -532,12 +569,12 @@ inline pthread_t CreateThread(void(*pfn)(void*), void* parg, bool fWantHandle=fa
     if (hthread == NULL)
     {
         printf("Error: CreateThread() returned %d\n", GetLastError());
-        return (pthread_t)0;
+        return (pthread_thread)0;
     }
     if (!fWantHandle)
     {
         CloseHandle(hthread);
-        return (pthread_t)-1;
+        return (pthread_thread)-1;
     }
     return hthread;
 }
@@ -586,9 +623,7 @@ inline void ExitThread(size_t nExitCode)
 }
 #endif
 
-
-
-
+void RenameThread(const char* name);
 
 inline uint32_t ByteReverse(uint32_t value)
 {

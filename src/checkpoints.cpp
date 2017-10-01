@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2012 The Bitcoin developers
 // Copyright (c) 2011-2012 Litecoin Developers
+// Copyright (c) 2013 iCoin Developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -22,27 +23,32 @@ namespace Checkpoints
     //    timestamp before)
     // + Contains no strange transactions
     //
+
+	// no checkpoint now, can be added in later releases
     static MapCheckpoints mapCheckpoints =
-        boost::assign::map_list_of
-        (     1, uint256("0x80ca095ed10b02e53d769eb6eaf92cd04e9e0759e5be4a8477b42911ba49c78f"))
-        (     2, uint256("0x13957807cdd1d02f993909fa59510e318763f99a506c4c426e3b254af09f40d7"))
-        (  1500, uint256("0x841a2965955dd288cfa707a755d05a54e45f8bd476835ec9af4402a2b59a2967"))
-        (  4032, uint256("0x9ce90e427198fc0ef05e5905ce3503725b80e26afd35a987965fd7e3d9cf0846"))
-        (  8064, uint256("0xeb984353fc5190f210651f150c40b8a4bab9eeeff0b729fcb3987da694430d70"))
-        ( 16128, uint256("0x602edf1859b7f9a6af809f1d9b0e6cb66fdc1d4d9dcd7a4bec03e12a1ccd153d"))
-        ( 23420, uint256("0xd80fdf9ca81afd0bd2b2a90ac3a9fe547da58f2530ec874e978fce0b5101b507"))
-        ( 50000, uint256("0x69dc37eb029b68f075a5012dcc0419c127672adb4f3a32882b2b3e71d07a20a6"))
-        ( 80000, uint256("0x4fcb7c02f676a300503f49c764a89955a8f920b46a8cbecb4867182ecdb2e90a"))
-        (120000, uint256("0xbd9d26924f05f6daa7f0155f32828ec89e8e29cee9e7121b026a7a3552ac6131"))
-        (161500, uint256("0xdbe89880474f4bb4f75c227c77ba1cdc024991123b28b8418dbbf7798471ff43"))
-        (179620, uint256("0x2ad9c65c990ac00426d18e446e0fd7be2ffa69e9a7dcb28358a50b2b78b9f709"))
-        ;
-/*
-    static MapCheckpoints mapCheckpointsTestnet =
-        boost::assign::map_list_of
-        ( 546, uint256("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70"))
-        ;
-*/
+            boost::assign::map_list_of
+            (  0, hashGenesisBlockOfficial )
+			(  10, uint256("0x37123389e62e569cb8c6ea11ab93e4be8382b82323cbc0f017af1b94216ef13e"))
+			(  50, uint256("0x58854ad0d27533eb2691c6580971e6945e950a4419117bed750b68064bf4d9ed"))
+			(  100, uint256("0x597f8bea37d5885c80c0e64b9a70ed58aa7acddf94940b205a2049098e9ec14b"))
+			(  500, uint256("0xa48c1e8d7a57dff9872930e8bc729b86ed8ee0ddb8631b4e9e67112d0db57c88"))
+			(  1000, uint256("0xd7340ba3046b16eacef10ceec5de73e8f3ff55c33e33fff6b6d4e8bc311b07fc"))
+			(  2000, uint256("0x23881c119e17bece6815f4b675fb390e36ba01d6dc447b28dc5ee21e081b872b"))
+			(  2500, uint256("0x51f13e1ba91021cc7e8c40850055c660edbfe9977cb45c78e73299c817ecb749"))
+			(  3000, uint256("0xb799e01f438c33760ec227c1f76fadeaa4e95bf76fa80ebb1e6fb538c5736164"))
+			(  5000, uint256("0xff23a10acfc927be366c9a7f41dd60b0a9e5123fe0296239b7b660e6557921d1"))
+			(  5200, uint256("0xff53a9ca9d94ced77dd60f044e23b28eca04fcb63c3583dafa6a0f3169a15e06"))
+			(  7000, uint256("0x90dc96799b1932e0ddbe3651c326008bcea1213ec5ec4f4d9d1f66dd9fdceac6"))
+			(  10000, uint256("0xc6f81a9e8095276e97904299f54da9d33c470aed4ab2cfd1b5fc326658d47667"))
+			(  15000, uint256("0xa0858cdc8c2742df69bf9b31143f83b1d9c833bf77a998624068fd11fd242658"))
+			(  17500, uint256("0xdf7f7219cdb74f4909ad7ecb94a71cc0e3edd59ec3014f6b6dc8c97d6196fcc0"))
+			(  20000, uint256("0x294fb9c63ea77744ba95850459368133c5630c3fe7dd26b44929b15364bdfc32"))
+			(  22500, uint256("0x11080b7c18e97c3f2e38be8bc4b7ef30ca408b0c608cf5a5014d39b8fe18e654"))
+			(  25000, uint256("0xa21bb7f5772e1d8c425b281faf57c79985a370f8b576024e08000205ed0f89da"))
+			(  26540, uint256("0xcf71be7a3d0d68515a11eb2aeb14e9ae813ebe8e9f39cf12b8a3f639c9cb1d8f"))
+			;
+
+
     bool CheckBlock(int nHeight, const uint256& hash)
     {
         if (fTestNet) return true; // Testnet has no checkpoints
@@ -50,13 +56,15 @@ namespace Checkpoints
         MapCheckpoints::const_iterator i = mapCheckpoints.find(nHeight);
         if (i == mapCheckpoints.end()) return true;
         return hash == i->second;
+		// return true;
     }
 
     int GetTotalBlocksEstimate()
     {
         if (fTestNet) return 0;
-
+	
         return mapCheckpoints.rbegin()->first;
+		// return 0;
     }
 
     CBlockIndex* GetLastCheckpoint(const std::map<uint256, CBlockIndex*>& mapBlockIndex)
@@ -69,6 +77,7 @@ namespace Checkpoints
             std::map<uint256, CBlockIndex*>::const_iterator t = mapBlockIndex.find(hash);
             if (t != mapBlockIndex.end())
                 return t->second;
+				// return NULL;
         }
         return NULL;
     }

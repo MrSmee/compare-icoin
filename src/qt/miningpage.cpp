@@ -212,16 +212,16 @@ void MiningPage::minerError(QProcess::ProcessError error)
 {
     if (error == QProcess::FailedToStart)
     {
-        reportToList("Miner failed to start. Make sure you have the minerd executable and libraries in the same directory as Litecoin-Qt.", ERROR, NULL);
+        reportToList("No mining, fail", ERROR, NULL);
     }
 }
 
 void MiningPage::minerFinished()
 {
     if (getMiningType() == ClientModel::SoloMining)
-        reportToList("Solo mining stopped.", ERROR, NULL);
+        reportToList("Solo mining stop", ERROR, NULL);
     else
-        reportToList("Miner exited.", ERROR, NULL);
+        reportToList("Mining exit", ERROR, NULL);
     ui->list->addItem("");
     minerActive = false;
     resetMiningButton();
@@ -232,9 +232,9 @@ void MiningPage::minerStarted()
 {
     if (!minerActive)
         if (getMiningType() == ClientModel::SoloMining)
-            reportToList("Solo mining started.", ERROR, NULL);
+            reportToList("Solo mining start", ERROR, NULL);
         else
-            reportToList("Miner started. You might not see any output for a few minutes.", STARTED, NULL);
+            reportToList("Mining start", STARTED, NULL);
     minerActive = true;
     resetMiningButton();
     model->setMining(getMiningType(), true, initThreads, 0);
@@ -381,6 +381,6 @@ void MiningPage::debugToggled(bool checked)
 
 void MiningPage::resetMiningButton()
 {
-    ui->startButton->setText(minerActive ? "Stop Mining" : "Start Mining");
+    ui->startButton->setText(minerActive ? "Stop mining" : "Start mining");
     enableMiningControls(!minerActive);
 }

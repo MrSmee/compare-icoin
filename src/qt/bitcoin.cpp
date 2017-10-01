@@ -109,31 +109,38 @@ static std::string Translate(const char* psz)
 static void handleRunawayException(std::exception *e)
 {
     PrintExceptionContinue(e, "Runaway exception");
-    QMessageBox::critical(0, "Runaway exception", BitcoinGUI::tr("A fatal error occured. Litecoin can no longer continue safely and will quit.") + QString("\n\n") + QString::fromStdString(strMiscWarning));
+    QMessageBox::critical(0, "Runaway exception", BitcoinGUI::tr("A fatal error occured. iCoin can no longer continue safely and will quit.") + QString("\n\n") + QString::fromStdString(strMiscWarning));
     exit(1);
 }
 
 #ifndef BITCOIN_QT_TEST
 int main(int argc, char *argv[])
 {
-#if !defined(MAC_OSX) && !defined(WIN32)
-// TODO: implement qtipcserver.cpp for Mac and Windows
-
+// TODO: implement URI support on the Mac.
+#if !defined(MAC_OSX)
     // Do this early as we don't want to bother initializing if we are just calling IPC
     for (int i = 1; i < argc; i++)
     {
-        if (boost::algorithm::istarts_with(argv[i], "litecoin:"))
+        if (boost::algorithm::istarts_with(argv[i], "iCoin:"))
         {
             const char *strURI = argv[i];
             try {
                 boost::interprocess::message_queue mq(boost::interprocess::open_only, BITCOINURI_QUEUE_NAME);
-                if(mq.try_send(strURI, strlen(strURI), 0))
+                if (mq.try_send(strURI, strlen(strURI), 0))
+                    // if URI could be sent to the message queue exit here
                     exit(0);
                 else
+                    // if URI could not be sent to the message queue do a normal Bitcoin-Qt startup
                     break;
             }
             catch (boost::interprocess::interprocess_exception &ex) {
-                break;
+                // don't log the "file not found" exception, because that's normal for
+                // the first start of the first instance
+                if (ex.get_error_code() != boost::interprocess::not_found_error)
+                {
+                    printf("main() - boost interprocess exception #%d: %s\n", ex.get_error_code(), ex.what());
+                    break;
+                }
             }
         }
     }
@@ -162,12 +169,12 @@ int main(int argc, char *argv[])
 
     // Application identification (must be set before OptionsModel is initialized,
     // as it is used to locate QSettings)
-    app.setOrganizationName("Litecoin");
-    app.setOrganizationDomain("litecoin.org");
+    app.setOrganizationName("iCoin");
+    app.setOrganizationDomain("iCoin-noexist-domain.org");
     if(GetBoolArg("-testnet")) // Separate UI settings for testnet
-        app.setApplicationName("Litecoin-Qt-testnet");
+        app.setApplicationName("iCoin-Qt-testnet");
     else
-        app.setApplicationName("Litecoin-Qt");
+        app.setApplicationName("iCoin-Qt");
 
     // ... then GUI settings:
     OptionsModel optionsModel;
@@ -262,8 +269,8 @@ int main(int argc, char *argv[])
                 {
                     window.show();
                 }
-#if !defined(MAC_OSX) && !defined(WIN32)
-// TODO: implement qtipcserver.cpp for Mac and Windows
+// TODO: implement URI support on the Mac.
+#if !defined(MAC_OSX)
 
                 // Place this here as guiref has to be defined if we dont want to lose URIs
                 ipcInit();
@@ -271,7 +278,7 @@ int main(int argc, char *argv[])
                 // Check for URI in argv
                 for (int i = 1; i < argc; i++)
                 {
-                    if (boost::algorithm::istarts_with(argv[i], "litecoin:"))
+                    if (boost::algorithm::istarts_with(argv[i], "iCoin:"))
                     {
                         const char *strURI = argv[i];
                         try {
@@ -279,6 +286,8 @@ int main(int argc, char *argv[])
                             mq.try_send(strURI, strlen(strURI), 0);
                         }
                         catch (boost::interprocess::interprocess_exception &ex) {
+                            printf("main() - boost interprocess exception #%d: %s\n", ex.get_error_code(), ex.what());
+                            break;
                         }
                     }
                 }

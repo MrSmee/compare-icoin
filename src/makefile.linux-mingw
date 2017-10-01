@@ -7,16 +7,15 @@ DEPSDIR:=/usr/i586-mingw32msvc
 USE_UPNP:=0
 
 INCLUDEPATHS= \
- -I"$(DEPSDIR)/boost_1_47_0" \
+ -I"$(DEPSDIR)/boost_1_53_0" \
  -I"$(DEPSDIR)/db-4.8.30.NC/build_unix" \
- -I"$(DEPSDIR)/openssl-1.0.1b/include" \
- -I"$(DEPSDIR)" \
+ -I"$(DEPSDIR)/openssl-1.0.1e/include" \
  -I"$(CURDIR)"/obj \
 
 LIBPATHS= \
- -L"$(DEPSDIR)/boost_1_47_0/stage/lib" \
+ -L"$(DEPSDIR)/boost_1_53_0/stage/lib" \
  -L"$(DEPSDIR)/db-4.8.30.NC/build_unix" \
- -L"$(DEPSDIR)/openssl-1.0.1b"
+ -L"$(DEPSDIR)/openssl-1.0.1e"
 
 LIBS= \
  -l boost_system-mt-s \
@@ -61,6 +60,7 @@ OBJS= \
     obj/bitcoinrpc.o \
     obj/rpcdump.o \
     obj/rpcnet.o \
+    obj/rpcrawtransaction.o \
     obj/script.o \
     obj/scrypt.o \
     obj/sync.o \
@@ -69,7 +69,7 @@ OBJS= \
     obj/walletdb.o \
     obj/noui.o
 
-all: litecoind.exe
+all: iCoind.exe
 
 obj/scrypt.o: scrypt.c
 	i586-mingw32msvc-gcc -c $(CFLAGS) -o $@ $^
@@ -82,7 +82,7 @@ DEFS += -DHAVE_BUILD_INFO
 obj/%.o: %.cpp $(HEADERS)
 	i586-mingw32msvc-g++ -c $(CFLAGS) -o $@ $<
 
-litecoind.exe: $(OBJS:obj/%=obj/%)
+iCoind.exe: $(OBJS:obj/%=obj/%)
 	i586-mingw32msvc-g++ $(CFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
 
 TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
@@ -90,15 +90,15 @@ TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
 obj-test/%.o: test/%.cpp $(HEADERS)
 	i586-mingw32msvc-g++ -c $(TESTDEFS) $(CFLAGS) -o $@ $<
 
-test_litecoin.exe: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
+test_iCoin.exe: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
 	i586-mingw32msvc-g++ $(CFLAGS) -o $@ $(LIBPATHS) $^ -lboost_unit_test_framework $(LIBS)
 
 
 clean:
 	-rm -f obj/*.o
-	-rm -f litecoind.exe
+	-rm -f iCoind.exe
 	-rm -f obj-test/*.o
-	-rm -f test_litecoin.exe
+	-rm -f test_iCoin.exe
 	-rm -f src/build.h
 
 FORCE:

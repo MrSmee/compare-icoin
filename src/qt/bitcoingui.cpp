@@ -3,13 +3,14 @@
  *
  * W.J. van der Laan 2011-2012
  * The Bitcoin Developers 2011-2012
+ * The Litecoin Developers 2011-2013
+ * The iCoin Developers 2013
  */
 #include "bitcoingui.h"
 #include "transactiontablemodel.h"
 #include "addressbookpage.h"
 #include "sendcoinsdialog.h"
-#include "messagepage.h"
-#include "verifymessagedialog.h"
+#include "signverifymessagedialog.h"
 #include "optionsdialog.h"
 #include "aboutdialog.h"
 #include "clientmodel.h"
@@ -45,6 +46,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QLocale>
+#include <QFont>
 #include <QMessageBox>
 #include <QProgressBar>
 #include <QStackedWidget>
@@ -53,7 +55,6 @@
 #include <QFileDialog>
 #include <QDesktopServices>
 #include <QTimer>
-
 #include <QDragEnterEvent>
 #include <QUrl>
 
@@ -71,7 +72,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     rpcConsole(0)
 {
     resize(850, 550);
-    setWindowTitle(tr("Litecoin Wallet"));
+    setWindowTitle(tr("iCoin") + " - " + tr("Wallet"));
 #ifndef Q_WS_MAC
     qApp->setWindowIcon(QIcon(":icons/bitcoin"));
     setWindowIcon(QIcon(":icons/bitcoin"));
@@ -79,7 +80,14 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     setUnifiedTitleAndToolBarOnMac(true);
     QApplication::setAttribute(Qt::AA_DontShowIconsInMenus);
 #endif
-    // Accept D&D of URIs
+
+	//specify a new font.
+    QFont newFont("Tahoma", 10);
+	
+	//set font of application
+    QApplication::setFont(newFont);
+    
+	// Accept D&D of URIs
     setAcceptDrops(true);
 
     // Create actions for the toolbar, menu bar and tray/dock icon
@@ -111,7 +119,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
 
     sendCoinsPage = new SendCoinsDialog(this);
 
-    messagePage = new MessagePage(this);
+    signVerifyMessageDialog = new SignVerifyMessageDialog(this);
 
     centralWidget = new QStackedWidget(this);
     centralWidget->addWidget(overviewPage);
@@ -121,7 +129,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     centralWidget->addWidget(receiveCoinsPage);
     centralWidget->addWidget(sendCoinsPage);
 #ifdef FIRST_CLASS_MESSAGING
-    centralWidget->addWidget(messagePage);
+    centralWidget->addWidget(signVerifyMessageDialog);
 #endif
     setCentralWidget(centralWidget);
 
@@ -173,6 +181,11 @@ BitcoinGUI::BitcoinGUI(QWidget *parent):
     rpcConsole = new RPCConsole(this);
     connect(openRPCConsoleAction, SIGNAL(triggered()), rpcConsole, SLOT(show()));
 
+    // Clicking on "Verify Message" in the address book sends you to the verify message tab
+    connect(addressBookPage, SIGNAL(verifyMessage(QString)), this, SLOT(gotoVerifyMessageTab(QString)));
+    // Clicking on "Sign Message" in the Much receive page sends you to the sign message tab
+    connect(receiveCoinsPage, SIGNAL(signMessage(QString)), this, SLOT(gotoSignMessageTab(QString)));
+
     gotoOverviewPage();
 }
 
@@ -189,47 +202,55 @@ void BitcoinGUI::createActions()
 {
     QActionGroup *tabGroup = new QActionGroup(this);
 
-    overviewAction = new QAction(QIcon(":/icons/overview"), tr("&Overview"), this);
+    overviewAction = new QAction(QIcon(":/icons/overview"), tr("&Home"), this);
     overviewAction->setToolTip(tr("Show general overview of wallet"));
     overviewAction->setCheckable(true);
     overviewAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_1));
     tabGroup->addAction(overviewAction);
 
-    miningAction = new QAction(QIcon(":/icons/mining"), tr("&Mining"), this);
-    miningAction->setToolTip(tr("Configure mining"));
+    miningAction = new QAction(QIcon(":/icons/mining"), tr("&Mine"), this);
+    miningAction->setToolTip(tr("Mine config"));
     miningAction->setCheckable(true);
     tabGroup->addAction(miningAction);
 
-    historyAction = new QAction(QIcon(":/icons/history"), tr("&Transactions"), this);
+    historyAction = new QAction(QIcon(":/icons/history"), tr("&Transaction"), this);
     historyAction->setToolTip(tr("Browse transaction history"));
     historyAction->setCheckable(true);
     historyAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_4));
     tabGroup->addAction(historyAction);
 
-    addressBookAction = new QAction(QIcon(":/icons/address-book"), tr("&Address Book"), this);
+    addressBookAction = new QAction(QIcon(":/icons/address-book"), tr("&Address"), this);
     addressBookAction->setToolTip(tr("Edit the list of stored addresses and labels"));
     addressBookAction->setCheckable(true);
     addressBookAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_5));
     tabGroup->addAction(addressBookAction);
 
-    receiveCoinsAction = new QAction(QIcon(":/icons/receiving_addresses"), tr("&Receive coins"), this);
+    receiveCoinsAction = new QAction(QIcon(":/icons/receiving_addresses"), tr("&Receive"), this);
     receiveCoinsAction->setToolTip(tr("Show the list of addresses for receiving payments"));
     receiveCoinsAction->setCheckable(true);
     receiveCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_3));
     tabGroup->addAction(receiveCoinsAction);
 
-    sendCoinsAction = new QAction(QIcon(":/icons/send"), tr("&Send coins"), this);
-    sendCoinsAction->setToolTip(tr("Send coins to a Litecoin address"));
+    sendCoinsAction = new QAction(QIcon(":/icons/send"), tr("&Send"), this);
+    sendCoinsAction->setToolTip(tr("Send coins to a iCoin address"));
     sendCoinsAction->setCheckable(true);
     sendCoinsAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_2));
     tabGroup->addAction(sendCoinsAction);
 
-    messageAction = new QAction(QIcon(":/icons/edit"), tr("Sign &message..."), this);
-    messageAction->setToolTip(tr("Prove you control an address"));
+    signMessageAction = new QAction(QIcon(":/icons/edit"), tr("Sign &message..."), this);
+    signMessageAction->setToolTip(tr("Sign a message to prove you own a Bitcoin address"));
+    tabGroup->addAction(signMessageAction);
+
+    verifyMessageAction = new QAction(QIcon(":/icons/transaction_0"), tr("&Verify message..."), this);
+    verifyMessageAction->setToolTip(tr("Verify a message to ensure it was signed with a specified Bitcoin address"));
+    tabGroup->addAction(verifyMessageAction);
+
 #ifdef FIRST_CLASS_MESSAGING
-    messageAction->setCheckable(true);
+    firstClassMessagingAction = new QAction(QIcon(":/icons/edit"), tr("S&ignatures"), this);
+    firstClassMessagingAction->setToolTip(signMessageAction->toolTip() + QString(". / ") + verifyMessageAction->toolTip() + QString("."));
+    firstClassMessagingAction->setCheckable(true);
+    tabGroup->addAction(firstClassMessagingAction);
 #endif
-    tabGroup->addAction(messageAction);
 
     connect(overviewAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(overviewAction, SIGNAL(triggered()), this, SLOT(gotoOverviewPage()));
@@ -242,24 +263,32 @@ void BitcoinGUI::createActions()
     connect(receiveCoinsAction, SIGNAL(triggered()), this, SLOT(gotoReceiveCoinsPage()));
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(gotoSendCoinsPage()));
-    connect(messageAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
-    connect(messageAction, SIGNAL(triggered()), this, SLOT(gotoMessagePage()));
+    connect(signMessageAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(signMessageAction, SIGNAL(triggered()), this, SLOT(gotoSignMessageTab()));
+    connect(verifyMessageAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(verifyMessageAction, SIGNAL(triggered()), this, SLOT(gotoVerifyMessageTab()));
+
+#ifdef FIRST_CLASS_MESSAGING
+    connect(firstClassMessagingAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    // Always start with the sign message tab for FIRST_CLASS_MESSAGING
+    connect(firstClassMessagingAction, SIGNAL(triggered()), this, SLOT(gotoSignMessageTab()));
+#endif
 
     quitAction = new QAction(QIcon(":/icons/quit"), tr("E&xit"), this);
     quitAction->setToolTip(tr("Quit application"));
     quitAction->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q));
     quitAction->setMenuRole(QAction::QuitRole);
-    aboutAction = new QAction(QIcon(":/icons/bitcoin"), tr("&About %1").arg(qApp->applicationName()), this);
-    aboutAction->setToolTip(tr("Show information about Litecoin"));
+    aboutAction = new QAction(QIcon(":/icons/bitcoin"), tr("&About iCoin"), this);
+    aboutAction->setToolTip(tr("Show information about iCoin"));
     aboutAction->setMenuRole(QAction::AboutRole);
     aboutQtAction = new QAction(tr("About &Qt"), this);
     aboutQtAction->setToolTip(tr("Show information about Qt"));
     aboutQtAction->setMenuRole(QAction::AboutQtRole);
     optionsAction = new QAction(QIcon(":/icons/options"), tr("&Options..."), this);
-    optionsAction->setToolTip(tr("Modify configuration options for Litecoin"));
+    optionsAction->setToolTip(tr("Modify configuration options for iCoin"));
     optionsAction->setMenuRole(QAction::PreferencesRole);
-    toggleHideAction = new QAction(QIcon(":/icons/bitcoin"), tr("Show/Hide &Litecoin"), this);
-    toggleHideAction->setToolTip(tr("Show or hide the Litecoin window"));
+    toggleHideAction = new QAction(QIcon(":/icons/bitcoin"), tr("Show/Hide &iCoin"), this);
+    toggleHideAction->setToolTip(tr("Show or hide the iCoin window"));
     exportAction = new QAction(QIcon(":/icons/export"), tr("&Export..."), this);
     exportAction->setToolTip(tr("Export the data in the current tab to a file"));
     encryptWalletAction = new QAction(QIcon(":/icons/lock_closed"), tr("&Encrypt Wallet..."), this);
@@ -271,8 +300,6 @@ void BitcoinGUI::createActions()
     changePassphraseAction->setToolTip(tr("Change the passphrase used for wallet encryption"));
     openRPCConsoleAction = new QAction(QIcon(":/icons/debugwindow"), tr("&Debug window"), this);
     openRPCConsoleAction->setToolTip(tr("Open debugging and diagnostic console"));
-    verifyMessageAction = new QAction(QIcon(":/icons/transaction_0"), tr("&Verify message..."), this);
-    verifyMessageAction->setToolTip(tr("Verify a message signature"));
 
     connect(quitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
     connect(optionsAction, SIGNAL(triggered()), this, SLOT(optionsClicked()));
@@ -282,7 +309,6 @@ void BitcoinGUI::createActions()
     connect(encryptWalletAction, SIGNAL(triggered(bool)), this, SLOT(encryptWallet(bool)));
     connect(backupWalletAction, SIGNAL(triggered()), this, SLOT(backupWallet()));
     connect(changePassphraseAction, SIGNAL(triggered()), this, SLOT(changePassphrase()));
-    connect(verifyMessageAction, SIGNAL(triggered()), this, SLOT(verifyMessage()));
 }
 
 void BitcoinGUI::createMenuBar()
@@ -300,9 +326,9 @@ void BitcoinGUI::createMenuBar()
     file->addAction(backupWalletAction);
     file->addAction(exportAction);
 #ifndef FIRST_CLASS_MESSAGING
-    file->addAction(messageAction);
-#endif
+    file->addAction(signMessageAction);
     file->addAction(verifyMessageAction);
+#endif
     file->addSeparator();
     file->addAction(quitAction);
 
@@ -330,7 +356,7 @@ void BitcoinGUI::createToolBars()
     toolbar->addAction(addressBookAction);
     toolbar->addAction(miningAction);
 #ifdef FIRST_CLASS_MESSAGING
-    toolbar->addAction(messageAction);
+    toolbar->addAction(firstClassMessagingAction);
 #endif
 
     QToolBar *toolbar2 = addToolBar(tr("Actions toolbar"));
@@ -343,6 +369,7 @@ void BitcoinGUI::setClientModel(ClientModel *clientModel)
     this->clientModel = clientModel;
     if(clientModel)
     {
+        // Replace some strings and icons, when using the testnet
         if(clientModel->isTestNet())
         {
             setWindowTitle(windowTitle() + QString(" ") + tr("[testnet]"));
@@ -354,10 +381,12 @@ void BitcoinGUI::setClientModel(ClientModel *clientModel)
 #endif
             if(trayIcon)
             {
-                trayIcon->setToolTip(tr("Litecoin client") + QString(" ") + tr("[testnet]"));
+                trayIcon->setToolTip(tr("iCoin client") + QString(" ") + tr("[testnet]"));
                 trayIcon->setIcon(QIcon(":/icons/toolbar_testnet"));
                 toggleHideAction->setIcon(QIcon(":/icons/toolbar_testnet"));
             }
+
+            aboutAction->setIcon(QIcon(":/icons/toolbar_testnet"));
         }
 
         // Keep up to date with client
@@ -374,6 +403,8 @@ void BitcoinGUI::setClientModel(ClientModel *clientModel)
         connect(clientModel, SIGNAL(error(QString,QString,bool)), this, SLOT(error(QString,QString,bool)));
 
         rpcConsole->setClientModel(clientModel);
+        addressBookPage->setOptionsModel(clientModel->getOptionsModel());
+        receiveCoinsPage->setOptionsModel(clientModel->getOptionsModel());
     }
 }
 
@@ -392,8 +423,8 @@ void BitcoinGUI::setWalletModel(WalletModel *walletModel)
         addressBookPage->setModel(walletModel->getAddressTableModel());
         receiveCoinsPage->setModel(walletModel->getAddressTableModel());
         sendCoinsPage->setModel(walletModel);
+        signVerifyMessageDialog->setModel(walletModel);
         miningPage->setModel(clientModel);
-        messagePage->setModel(walletModel);
 
         setEncryptionStatus(walletModel->getEncryptionStatus());
         connect(walletModel, SIGNAL(encryptionStatusChanged(int)), this, SLOT(setEncryptionStatus(int)));
@@ -414,7 +445,7 @@ void BitcoinGUI::createTrayIcon()
     trayIcon = new QSystemTrayIcon(this);
     trayIconMenu = new QMenu(this);
     trayIcon->setContextMenu(trayIconMenu);
-    trayIcon->setToolTip(tr("Litecoin client"));
+    trayIcon->setToolTip(tr("iCoin client"));
     trayIcon->setIcon(QIcon(":/icons/toolbar"));
     connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
             this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
@@ -433,7 +464,7 @@ void BitcoinGUI::createTrayIcon()
 #ifndef FIRST_CLASS_MESSAGING
     trayIconMenu->addSeparator();
 #endif
-    trayIconMenu->addAction(messageAction);
+    trayIconMenu->addAction(signMessageAction);
     trayIconMenu->addAction(verifyMessageAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(optionsAction);
@@ -451,7 +482,7 @@ void BitcoinGUI::trayIconActivated(QSystemTrayIcon::ActivationReason reason)
 {
     if(reason == QSystemTrayIcon::Trigger)
     {
-        // Click on system tray icon triggers "show/hide Litecoin"
+        // Click on system tray icon triggers "show/hide iCoin"
         toggleHideAction->trigger();
     }
 }
@@ -485,7 +516,7 @@ void BitcoinGUI::setNumConnections(int count)
     default: icon = ":/icons/connect_4"; break;
     }
     labelConnectionsIcon->setPixmap(QIcon(icon).pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
-    labelConnectionsIcon->setToolTip(tr("%n active connection(s) to Litecoin network", "", count));
+    labelConnectionsIcon->setToolTip(tr("%n active connection(s) to iCoin network", "", count));
 }
 
 void BitcoinGUI::setNumBlocks(int count, int nTotalBlocks)
@@ -536,7 +567,7 @@ void BitcoinGUI::setNumBlocks(int count, int nTotalBlocks)
         tooltip = tr("Downloaded %1 blocks of transaction history.").arg(count);
     }
 
-    tooltip = tr("Current difficulty is %1.").arg(clientModel->GetDifficulty()) + QString("<br>") + tooltip;
+    tooltip = tr("Difficult %1.").arg(clientModel->GetDifficulty()) + QString("<br>") + tooltip;
 
     QDateTime now = QDateTime::currentDateTime();
     QDateTime lastBlockDate = clientModel->getLastBlockDate();
@@ -601,12 +632,12 @@ void BitcoinGUI::setMining(bool mining, int hashrate)
     if (mining)
     {
         labelMiningIcon->setPixmap(QIcon(":/icons/mining_active").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
-        labelMiningIcon->setToolTip(tr("Mining Litecoins at %1 hashes per second").arg(hashrate));
+        labelMiningIcon->setToolTip(tr("Mine iCoins at %1 hashes per second").arg(hashrate));
     }
     else
     {
         labelMiningIcon->setPixmap(QIcon(":/icons/mining_inactive").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
-        labelMiningIcon->setToolTip(tr("Not mining Litecoins"));
+        labelMiningIcon->setToolTip(tr("Not mine iCoins"));
     }
 }
 
@@ -760,20 +791,42 @@ void BitcoinGUI::gotoSendCoinsPage()
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);
 }
 
-void BitcoinGUI::gotoMessagePage(QString addr)
+void BitcoinGUI::gotoSignMessageTab(QString addr)
 {
-    if(!addr.isEmpty())
-        messagePage->setAddress(addr);
-
 #ifdef FIRST_CLASS_MESSAGING
-    messageAction->setChecked(true);
-    centralWidget->setCurrentWidget(messagePage);
+    firstClassMessagingAction->setChecked(true);
+    centralWidget->setCurrentWidget(signVerifyMessageDialog);
 
     exportAction->setEnabled(false);
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+
+    signVerifyMessageDialog->showTab_SM(false);
 #else
-    messagePage->show();
+    // call show() in showTab_SM()
+    signVerifyMessageDialog->showTab_SM(true);
 #endif
+
+    if(!addr.isEmpty())
+        signVerifyMessageDialog->setAddress_SM(addr);
+}
+
+void BitcoinGUI::gotoVerifyMessageTab(QString addr)
+{
+#ifdef FIRST_CLASS_MESSAGING
+    firstClassMessagingAction->setChecked(true);
+    centralWidget->setCurrentWidget(signVerifyMessageDialog);
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
+
+    signVerifyMessageDialog->showTab_VM(false);
+#else
+    // call show() in showTab_VM()
+    signVerifyMessageDialog->showTab_VM(true);
+#endif
+
+    if(!addr.isEmpty())
+        signVerifyMessageDialog->setAddress_VM(addr);
 }
 
 void BitcoinGUI::dragEnterEvent(QDragEnterEvent *event)
@@ -799,7 +852,7 @@ void BitcoinGUI::dropEvent(QDropEvent *event)
         if (nValidUrisFound)
             gotoSendCoinsPage();
         else
-            notificator->notify(Notificator::Warning, tr("URI handling"), tr("URI can not be parsed! This can be caused by an invalid Litecoin address or malformed URI parameters."));
+            notificator->notify(Notificator::Warning, tr("URI handling"), tr("URI can not be parsed! This can be caused by an invalid iCoin address or malformed URI parameters."));
     }
 
     event->acceptProposedAction();
@@ -814,7 +867,7 @@ void BitcoinGUI::handleURI(QString strURI)
         gotoSendCoinsPage();
     }
     else
-        notificator->notify(Notificator::Warning, tr("URI handling"), tr("URI can not be parsed! This can be caused by an invalid Litecoin address or malformed URI parameters."));
+        notificator->notify(Notificator::Warning, tr("URI handling"), tr("URI can not be parsed! This can be caused by an invalid iCoin address or malformed URI parameters."));
 }
 
 void BitcoinGUI::setEncryptionStatus(int status)
@@ -876,13 +929,6 @@ void BitcoinGUI::changePassphrase()
     dlg.exec();
 }
 
-void BitcoinGUI::verifyMessage()
-{
-    VerifyMessageDialog *dlg = new VerifyMessageDialog(this);
-    dlg->setAttribute(Qt::WA_DeleteOnClose);
-    dlg->show();
-}
-
 void BitcoinGUI::unlockWallet()
 {
     if(!walletModel)
@@ -895,6 +941,8 @@ void BitcoinGUI::unlockWallet()
         dlg.exec();
     }
 }
+
+
 
 void BitcoinGUI::showNormalIfMinimized(bool fToggleHidden)
 {

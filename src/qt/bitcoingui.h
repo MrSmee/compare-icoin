@@ -12,7 +12,7 @@ class OverviewPage;
 class MiningPage;
 class AddressBookPage;
 class SendCoinsDialog;
-class MessagePage;
+class SignVerifyMessageDialog;
 class Notificator;
 class RPCConsole;
 
@@ -66,7 +66,7 @@ private:
     AddressBookPage *addressBookPage;
     AddressBookPage *receiveCoinsPage;
     SendCoinsDialog *sendCoinsPage;
-    MessagePage *messagePage;
+    SignVerifyMessageDialog *signVerifyMessageDialog;
 
     QLabel *labelEncryptionIcon;
     QLabel *labelMiningIcon;
@@ -82,8 +82,9 @@ private:
     QAction *quitAction;
     QAction *sendCoinsAction;
     QAction *addressBookAction;
-    QAction *messageAction;
+    QAction *signMessageAction;
     QAction *verifyMessageAction;
+    QAction *firstClassMessagingAction;
     QAction *aboutAction;
     QAction *receiveCoinsAction;
     QAction *optionsAction;
@@ -94,6 +95,7 @@ private:
     QAction *changePassphraseAction;
     QAction *aboutQtAction;
     QAction *openRPCConsoleAction;
+    QAction *iCoin;
 
     QSystemTrayIcon *trayIcon;
     Notificator *notificator;
@@ -137,8 +139,6 @@ public slots:
     void askFee(qint64 nFeeRequired, bool *payFee);
     void handleURI(QString strURI);
 
-    void gotoMessagePage(QString addr = "");
-
 private slots:
     /** Switch to overview (home) page */
     void gotoOverviewPage();
@@ -148,10 +148,15 @@ private slots:
     void gotoHistoryPage();
     /** Switch to address book page */
     void gotoAddressBookPage();
-    /** Switch to receive coins page */
+    /** Switch to Much receive page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */
     void gotoSendCoinsPage();
+
+    /** Show Sign/Verify Message dialog and switch to sign message tab */
+    void gotoSignMessageTab(QString addr = "");
+    /** Show Sign/Verify Message dialog and switch to verify message tab */
+    void gotoVerifyMessageTab(QString addr = "");
 
     /** Show configuration dialog */
     void optionsClicked();
@@ -172,8 +177,6 @@ private slots:
     void backupWallet();
     /** Change encrypted wallet passphrase */
     void changePassphrase();
-    /** Verify a message signature */
-    void verifyMessage();
     /** Ask for pass phrase to unlock wallet temporarily */
     void unlockWallet();
 

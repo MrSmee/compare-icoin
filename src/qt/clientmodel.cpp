@@ -19,6 +19,7 @@ ClientModel::ClientModel(OptionsModel *optionsModel, QObject *parent) :
 {
     numBlocksAtStartup = -1;
 
+    pollTimer = new QTimer(this);
     // Read our specific settings from the wallet db
     /*
     CWalletDB walletdb(optionsModel->getWallet()->strWalletFile);
@@ -46,7 +47,6 @@ ClientModel::ClientModel(OptionsModel *optionsModel, QObject *parent) :
 //    }
 //    miningThreads = nLimitProcessors;
 
-    pollTimer = new QTimer(this);
     pollTimer->setInterval(MODEL_UPDATE_DELAY);
     pollTimer->start();
     connect(pollTimer, SIGNAL(timeout()), this, SLOT(updateTimer()));

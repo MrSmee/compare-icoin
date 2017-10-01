@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
 // Copyright (c) 2011-2012 Litecoin Developers
+// Copyright (c) 2013 iCoin Developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -57,7 +58,7 @@ static bool vfReachable[NET_MAX] = {};
 static bool vfLimited[NET_MAX] = {};
 static CNode* pnodeLocalHost = NULL;
 uint64 nLocalHostNonce = 0;
-array<int, THREAD_MAX> vnThreadsRunning;
+boost::array<int, THREAD_MAX> vnThreadsRunning;
 static std::vector<SOCKET> vhListenSocket;
 CAddrMan addrman;
 
@@ -408,6 +409,9 @@ bool GetMyExternalIP(CNetAddr& ipRet)
 
 void ThreadGetMyExternalIP(void* parg)
 {
+    // Make this thread recognisable as the external IP detection thread
+    RenameThread("bitcoin-ext-ip");
+
     CNetAddr addrLocalHost;
     if (GetMyExternalIP(addrLocalHost))
     {
@@ -637,6 +641,10 @@ void CNode::copyStats(CNodeStats &stats)
 void ThreadSocketHandler(void* parg)
 {
     IMPLEMENT_RANDOMIZE_STACK(ThreadSocketHandler(parg));
+
+    // Make this thread recognisable as the networking thread
+    RenameThread("bitcoin-net");
+
     try
     {
         vnThreadsRunning[THREAD_SOCKETHANDLER]++;
@@ -989,6 +997,10 @@ void ThreadSocketHandler2(void* parg)
 void ThreadMapPort(void* parg)
 {
     IMPLEMENT_RANDOMIZE_STACK(ThreadMapPort(parg));
+
+    // Make this thread recognisable as the UPnP thread
+    RenameThread("bitcoin-UPnP");
+
     try
     {
         vnThreadsRunning[THREAD_UPNP]++;
@@ -1050,7 +1062,7 @@ void ThreadMapPort2(void* parg)
             }
         }
 
-        string strDesc = "Litecoin " + FormatFullVersion();
+        string strDesc = "iCoin " + FormatFullVersion();
 #ifndef UPNPDISCOVER_SUCCESS
         /* miniupnpc 1.5 */
         r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
@@ -1138,14 +1150,18 @@ void MapPort()
 // The first name is used as information source for addrman.
 // The second name should resolve to a list of seed addresses.
 static const char *strDNSSeed[][2] = {
-    {"litecoinpool.org", "dnsseed.litecoinpool.org"},
-    {"bytesized-vps.com", "dnsseed.bytesized-vps.com"},
-    {"xurious.com", "dnsseed.ltc.xurious.com"},
+    // {"iCoinpool.org", "dnsseed.iCoinpool.org"},
+    // {"bytesized-vps.com", "dnsseed.bytesized-vps.com"},
+    // {"xurious.com", "dnsseed.ltc.xurious.com"},
 };
 
 void ThreadDNSAddressSeed(void* parg)
 {
     IMPLEMENT_RANDOMIZE_STACK(ThreadDNSAddressSeed(parg));
+
+    // Make this thread recognisable as the DNS seeding thread
+    RenameThread("bitcoin-dnsseed");
+
     try
     {
         vnThreadsRunning[THREAD_DNSSEED]++;
@@ -1209,7 +1225,7 @@ void ThreadDNSAddressSeed2(void* parg)
 
 unsigned int pnSeed[] =
 {
-    0x2EFDCB71, 0xCC1B3AD6, 0xADA77149,
+    0x92B9B572, 0xA2F3716E, 0x5F551D90
 };
 
 void DumpAddresses()
@@ -1239,6 +1255,10 @@ void ThreadDumpAddress2(void* parg)
 void ThreadDumpAddress(void* parg)
 {
     IMPLEMENT_RANDOMIZE_STACK(ThreadDumpAddress(parg));
+
+    // Make this thread recognisable as the address dumping thread
+    RenameThread("bitcoin-adrdump");
+
     try
     {
         ThreadDumpAddress2(parg);
@@ -1252,6 +1272,10 @@ void ThreadDumpAddress(void* parg)
 void ThreadOpenConnections(void* parg)
 {
     IMPLEMENT_RANDOMIZE_STACK(ThreadOpenConnections(parg));
+
+    // Make this thread recognisable as the connection opening thread
+    RenameThread("bitcoin-opencon");
+
     try
     {
         vnThreadsRunning[THREAD_OPENCONNECTIONS]++;
@@ -1354,16 +1378,17 @@ void ThreadOpenConnections2(void* parg)
         //
         CAddress addrConnect;
 
-        // Only connect to one address per a.b.?.? range.
+        // Only connect out to one peer per network group (/16 for IPv4).
         // Do this here so we don't have to critsect vNodes inside mapAddresses critsect.
         int nOutbound = 0;
         set<vector<unsigned char> > setConnected;
         {
             LOCK(cs_vNodes);
             BOOST_FOREACH(CNode* pnode, vNodes) {
-                setConnected.insert(pnode->addr.GetGroup());
-                if (!pnode->fInbound)
+                if (!pnode->fInbound) {
+                    setConnected.insert(pnode->addr.GetGroup());
                     nOutbound++;
+                }
             }
         }
 
@@ -1404,6 +1429,10 @@ void ThreadOpenConnections2(void* parg)
 void ThreadOpenAddedConnections(void* parg)
 {
     IMPLEMENT_RANDOMIZE_STACK(ThreadOpenAddedConnections(parg));
+
+    // Make this thread recognisable as the connection opening thread
+    RenameThread("iCoin-opencon");
+
     try
     {
         vnThreadsRunning[THREAD_ADDEDCONNECTIONS]++;
@@ -1533,6 +1562,10 @@ bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOu
 void ThreadMessageHandler(void* parg)
 {
     IMPLEMENT_RANDOMIZE_STACK(ThreadMessageHandler(parg));
+
+    // Make this thread recognisable as the message handling thread
+    RenameThread("bitcoin-msghand");
+
     try
     {
         vnThreadsRunning[THREAD_MESSAGEHANDLER]++;
@@ -1695,7 +1728,7 @@ bool BindListenPort(const CService &addrBind, string& strError)
     {
         int nErr = WSAGetLastError();
         if (nErr == WSAEADDRINUSE)
-            strError = strprintf(_("Unable to bind to %s on this computer. Litecoin is probably already running."), addrBind.ToString().c_str());
+            strError = strprintf(_("Unable to bind to %s on this computer. iCoin is probably already running."), addrBind.ToString().c_str());
         else
             strError = strprintf(_("Unable to bind to %s on this computer (bind returned error %d, %s)"), addrBind.ToString().c_str(), nErr, strerror(nErr));
         printf("%s\n", strError.c_str());
@@ -1775,6 +1808,9 @@ void static Discover()
 
 void StartNode(void* parg)
 {
+    // Make this thread recognisable as the startup thread
+    RenameThread("iCoin-start");
+
     if (semOutbound == NULL) {
         // initialize semaphore
         int nMaxOutbound = min(MAX_OUTBOUND_CONNECTIONS, (int)GetArg("-maxconnections", 125));
